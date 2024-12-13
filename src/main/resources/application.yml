@@ -1,0 +1,46 @@
+server:
+  port: 9443
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/spring-security
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+
+  security:
+    user:
+      name: user
+      password: password
+    oauth2:
+      authorizationserver:
+        client:
+          dsca-backend:
+            registration:
+              client-id: "dsca-bff"
+              client-secret: "{noop}secret"
+              client-authentication-methods:
+                - "client_secret_basic"
+              authorization-grant-types:
+                - "authorization_code"
+                - "refresh_token"
+                - "client_credentials"
+              redirect-uris:
+                - "http://127.0.0.1:8080/login/oauth2/code/dsca-bff"
+                - "http://127.0.0.1:8080/authorized"
+              post-logout-redirect-uris:
+                - "http://127.0.0.1:8080/logged-out"
+              scopes:
+                - "openid"
+                - "profile"
+                - "message.read"
+                - "message.write"
+                - "user.read"
+            require-authorization-consent: true
+
+logging:
+  level:
+    root: INFO
+    org.springframework.web: TRACE
+    org.springframework.security: TRACE
+    org.springframework.security.oauth2: TRACE
