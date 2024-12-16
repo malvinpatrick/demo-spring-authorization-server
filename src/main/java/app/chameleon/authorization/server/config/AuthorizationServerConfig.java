@@ -1,10 +1,5 @@
 package app.chameleon.authorization.server.config;
 
-import app.chameleon.authorization.server.jose.Jwks;
-import com.nimbusds.jose.jwk.JWKSet;
-import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.source.JWKSource;
-import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
@@ -20,14 +15,14 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
-import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
-import org.springframework.security.oauth2.server.authorization.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.oauth2.server.authorization.config.annotation.web.configurers.OAuth2AuthorizationServerConfigurer;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
+import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
+import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
@@ -41,9 +36,12 @@ public class AuthorizationServerConfig {
 
     @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
-    public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,
+    public SecurityFilterChain authorizationServerSecurityFilterChain(
+            HttpSecurity http,
             RegisteredClientRepository registeredClientRepository,
-            AuthorizationServerSettings authorizationServerSettings) throws Exception {
+            AuthorizationServerSettings authorizationServerSettings
+//            ,AuthenticationManagerResolver<HttpServletRequest> tokenAuthenticationManagerResolver
+    ) throws Exception {
 
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = OAuth2AuthorizationServerConfigurer.authorizationServer();
 
@@ -58,6 +56,12 @@ public class AuthorizationServerConfig {
             )
             .authorizeHttpRequests(authorize ->
                 authorize.anyRequest().authenticated()
+            )
+            .oauth2ResourceServer((resourceServer) ->
+                resourceServer
+//                    .authenticationManagerResolver(tokenAuthenticationManagerResolver)
+                    .jwt(Customizer.withDefaults())
+//                    .opaqueToken(Customizer.withDefaults())
             )
             .exceptionHandling((exceptions) ->
                exceptions
@@ -101,7 +105,7 @@ public class AuthorizationServerConfig {
         JdbcRegisteredClientRepository repository = new JdbcRegisteredClientRepository(jdbcTemplate);
 
         RegisteredClient clientDscaBff = repository.findByClientId("dsca-bff"); if (clientDscaBff == null) {
-            RegisteredClient client1 = RegisteredClient.withId(UUID.randomUUID().toString()).clientId("dsca-bff")
+            RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString()).clientId("dsca-bff")
                     .clientSecret("{noop}secret").clientName("dsca-bff")
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
@@ -112,7 +116,24 @@ public class AuthorizationServerConfig {
                     .scope(OidcScopes.PROFILE).scope("message.read").scope("message.write").scope("user.read")
                     .clientSettings(ClientSettings.builder().requireAuthorizationConsent(true).build()).build();
 
-            repository.save(client1);
+            repository.save(client);
+        }
+
+        RegisteredClient clientDscaBff2 = repository.findByClientId("dsca-bff2"); if (clientDscaBff2 == null) {
+            RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString()).clientId("dsca-bff2")
+                    .clientSecret("{noop}secret2")
+                    .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                    .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
+                    .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+                    .redirectUri("http://127.0.0.1:8080/login/oauth2/code/dsca-bff2")
+                    .redirectUri("http://127.0.0.1:8080/authorized")
+                    .postLogoutRedirectUri("http://127.0.0.1:8080/logged-out")
+                    .scope(OidcScopes.OPENID)
+                    .scope(OidcScopes.PROFILE).scope("message.read").scope("message.write").scope("user.read")
+                    .tokenSettings(TokenSettings.builder().accessTokenFormat(OAuth2TokenFormat.REFERENCE).build())
+                    .clientSettings(ClientSettings.builder().requireAuthorizationConsent(true).build()).build();
+
+            repository.save(client);
         }
 
 
@@ -120,18 +141,8 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
-    public JWKSource<SecurityContext> jwkSource() {
-        RSAKey rsaKey = Jwks.generateRsa(); JWKSet jwkSet = new JWKSet(rsaKey);
-        return (jwkSelector, securityContext) -> jwkSelector.select(jwkSet);
-    }
-
-    @Bean
-    public JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
-        return OAuth2AuthorizationServerConfiguration.jwtDecoder(jwkSource);
-    }
-
-    @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
     }
+
 }
