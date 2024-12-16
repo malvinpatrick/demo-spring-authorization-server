@@ -9,12 +9,16 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
+import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
+import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -23,12 +27,18 @@ import org.springframework.security.oauth2.server.authorization.settings.Authori
 import org.springframework.security.oauth2.server.authorization.settings.ClientSettings;
 import org.springframework.security.oauth2.server.authorization.settings.OAuth2TokenFormat;
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenClaimsContext;
+import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Configuration
 @EnableWebSecurity
@@ -123,6 +133,8 @@ public class AuthorizationServerConfig {
             RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString()).clientId("dsca-bff2")
                     .clientSecret("{noop}secret2")
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                    .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                    .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                     .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
                     .redirectUri("http://127.0.0.1:8080/login/oauth2/code/dsca-bff2")
@@ -143,6 +155,35 @@ public class AuthorizationServerConfig {
     @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
+    }
+
+    @Bean
+    OAuth2TokenCustomizer<OAuth2TokenClaimsContext> accessTokenCustomizer(){
+        return context -> {
+            if ((AuthorizationGrantType.AUTHORIZATION_CODE.equals(context.getAuthorizationGrantType())
+                    || AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType()))
+                    && OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
+                Authentication principal = context.getPrincipal();
+                Set<String> authorities = principal.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toSet());
+                authorities.add("SCOPE_message.read");
+                context.getClaims().claim("authorities", authorities);
+            } else if (OidcParameterNames.ID_TOKEN.equals(context.getTokenType().getValue())) {
+                Authentication principal = context.getPrincipal();
+                Set<String> authorities = principal.getAuthorities().stream()
+                        .map(GrantedAuthority::getAuthority)
+                        .collect(Collectors.toSet());
+                context.getClaims().claim("authorities", authorities);
+            } else if (AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())) {
+                Authentication principal = context.getPrincipal();
+                if("dsca-bff2".equals(principal.getName())) {
+                    List<String> authorities = new ArrayList<>();
+                    authorities.add("SCOPE_message.read");
+                    context.getClaims().claim("authorities", authorities);
+                }
+            }
+        };
     }
 
 }
