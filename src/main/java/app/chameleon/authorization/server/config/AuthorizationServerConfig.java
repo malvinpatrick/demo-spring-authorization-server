@@ -18,6 +18,8 @@ import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
+import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
@@ -64,6 +66,10 @@ public class AuthorizationServerConfig {
                     .authorizationServerSettings(authorizationServerSettings)
                     .oidc(Customizer.withDefaults())	// Enable OpenID Connect 1.0
             )
+            .headers(
+                    headers -> headers
+                            .frameOptions((frameOptions) -> frameOptions.disable())
+            )
             .authorizeHttpRequests(authorize ->
                 authorize.anyRequest().authenticated()
             )
@@ -96,7 +102,12 @@ public class AuthorizationServerConfig {
 
             // Form login handles the redirect to the login page from the
             // authorization server filter chain
-            .formLogin(Customizer.withDefaults());
+            .formLogin(Customizer.withDefaults())
+            .headers(
+                headers -> headers
+                    .frameOptions((frameOptions) -> frameOptions.disable())
+            )
+        ;
 
         return http.build();
         // @formatter:on
@@ -114,36 +125,45 @@ public class AuthorizationServerConfig {
     public JdbcRegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate) {
         JdbcRegisteredClientRepository repository = new JdbcRegisteredClientRepository(jdbcTemplate);
 
-        RegisteredClient clientDscaBff = repository.findByClientId("dsca-bff"); if (clientDscaBff == null) {
-            RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString()).clientId("dsca-bff")
-                    .clientSecret("{noop}secret").clientName("dsca-bff")
+        RegisteredClient clientDscaBff = repository.findByClientId("dsca-bff1");
+        if (clientDscaBff == null) {
+            RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString())
+                    .clientId("dsca-bff1")
+                    .clientSecret("{noop}secret1")
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
+                    .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+                    .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                     .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                    .redirectUri("http://127.0.0.1:8080/login/oauth2/code/dsca-bff")
-                    .redirectUri("http://127.0.0.1:8080/authorized")
-                    .postLogoutRedirectUri("http://127.0.0.1:8080/logged-out").scope(OidcScopes.OPENID)
-                    .scope(OidcScopes.PROFILE).scope("message.read").scope("message.write").scope("user.read")
-                    .clientSettings(ClientSettings.builder().requireAuthorizationConsent(true).build()).build();
+                    .redirectUri("http://angular-client-1.devbz.local:8081/login/oauth2/code/dsca-bff1")
+                    .redirectUri("http://angular-client-1.devbz.local:8081/authorized")
+                    .postLogoutRedirectUri("http://angular-client-1.devbz.local:8081/logged-out")
+                    .scope(OidcScopes.OPENID)
+                    .scope(OidcScopes.PROFILE)
+                    .scope("message.read").scope("message.write").scope("user.read")
+                    .tokenSettings(TokenSettings.builder().accessTokenFormat(OAuth2TokenFormat.REFERENCE).build())
+                    .clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).build()).build();
 
             repository.save(client);
         }
 
-        RegisteredClient clientDscaBff2 = repository.findByClientId("dsca-bff2"); if (clientDscaBff2 == null) {
-            RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString()).clientId("dsca-bff2")
+        RegisteredClient clientDscaBff2 = repository.findByClientId("dsca-bff2");
+        if (clientDscaBff2 == null) {
+            RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString())
+                    .clientId("dsca-bff2")
                     .clientSecret("{noop}secret2")
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
                     .clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
                     .authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
                     .authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
                     .authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
-                    .redirectUri("http://127.0.0.1:8080/login/oauth2/code/dsca-bff2")
-                    .redirectUri("http://127.0.0.1:8080/authorized")
-                    .postLogoutRedirectUri("http://127.0.0.1:8080/logged-out")
+                    .redirectUri("http://angular-client-2.devbz.local:8082/login/oauth2/code/dsca-bff2")
+                    .redirectUri("http://angular-client-2.devbz.local:8082/authorized")
+                    .postLogoutRedirectUri("http://angular-client-2.devbz.local:8082/logged-out")
                     .scope(OidcScopes.OPENID)
                     .scope(OidcScopes.PROFILE).scope("message.read").scope("message.write").scope("user.read")
                     .tokenSettings(TokenSettings.builder().accessTokenFormat(OAuth2TokenFormat.REFERENCE).build())
-                    .clientSettings(ClientSettings.builder().requireAuthorizationConsent(true).build()).build();
+                    .clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).build()).build();
 
             repository.save(client);
         }
@@ -153,37 +173,50 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
+    public JdbcOAuth2AuthorizationService authorizationService(JdbcTemplate jdbcTemplate,
+            RegisteredClientRepository registeredClientRepository) {
+        return new JdbcOAuth2AuthorizationService(jdbcTemplate, registeredClientRepository);
+    }
+
+    @Bean
+    public JdbcOAuth2AuthorizationConsentService authorizationConsentService(JdbcTemplate jdbcTemplate,
+            RegisteredClientRepository registeredClientRepository) {
+        // Will be used by the ConsentController
+        return new JdbcOAuth2AuthorizationConsentService(jdbcTemplate, registeredClientRepository);
+    }
+
+    @Bean
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
     }
 
-    @Bean
-    OAuth2TokenCustomizer<OAuth2TokenClaimsContext> accessTokenCustomizer(){
-        return context -> {
-            if ((AuthorizationGrantType.AUTHORIZATION_CODE.equals(context.getAuthorizationGrantType())
-                    || AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType()))
-                    && OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
-                Authentication principal = context.getPrincipal();
-                Set<String> authorities = principal.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .collect(Collectors.toSet());
-                authorities.add("SCOPE_message.read");
-                context.getClaims().claim("authorities", authorities);
-            } else if (OidcParameterNames.ID_TOKEN.equals(context.getTokenType().getValue())) {
-                Authentication principal = context.getPrincipal();
-                Set<String> authorities = principal.getAuthorities().stream()
-                        .map(GrantedAuthority::getAuthority)
-                        .collect(Collectors.toSet());
-                context.getClaims().claim("authorities", authorities);
-            } else if (AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())) {
-                Authentication principal = context.getPrincipal();
-                if("dsca-bff2".equals(principal.getName())) {
-                    List<String> authorities = new ArrayList<>();
-                    authorities.add("SCOPE_message.read");
-                    context.getClaims().claim("authorities", authorities);
-                }
-            }
-        };
-    }
+//    @Bean
+//    OAuth2TokenCustomizer<OAuth2TokenClaimsContext> accessTokenCustomizer(){
+//        return context -> {
+//            if ((AuthorizationGrantType.AUTHORIZATION_CODE.equals(context.getAuthorizationGrantType())
+//                    || AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType()))
+//                    && OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
+//                Authentication principal = context.getPrincipal();
+//                Set<String> authorities = principal.getAuthorities().stream()
+//                        .map(GrantedAuthority::getAuthority)
+//                        .collect(Collectors.toSet());
+//                authorities.add("SCOPE_message.read");
+//                context.getClaims().claim("authorities", authorities);
+//            } else if (OidcParameterNames.ID_TOKEN.equals(context.getTokenType().getValue())) {
+//                Authentication principal = context.getPrincipal();
+//                Set<String> authorities = principal.getAuthorities().stream()
+//                        .map(GrantedAuthority::getAuthority)
+//                        .collect(Collectors.toSet());
+//                context.getClaims().claim("authorities", authorities);
+//            } else if (AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())) {
+//                Authentication principal = context.getPrincipal();
+//                if("dsca-bff2".equals(principal.getName())) {
+//                    List<String> authorities = new ArrayList<>();
+//                    authorities.add("SCOPE_message.read");
+//                    context.getClaims().claim("authorities", authorities);
+//                }
+//            }
+//        };
+//    }
 
 }

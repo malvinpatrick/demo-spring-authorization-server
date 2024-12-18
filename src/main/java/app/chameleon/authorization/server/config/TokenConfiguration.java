@@ -27,7 +27,7 @@ public class TokenConfiguration {
 //    @Bean
 //    public OpaqueTokenIntrospector opaqueTokenIntrospector() {
 //        return new SpringOpaqueTokenIntrospector(
-//                "http://localhost:9000/oauth2/introspect",
+//                "http://authorization.devbz.local:9000/oauth2/introspect",
 //                "dsca-bff2",
 //                "secret2"
 //        );
