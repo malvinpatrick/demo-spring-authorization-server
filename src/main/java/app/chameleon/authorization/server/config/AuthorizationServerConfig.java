@@ -1,14 +1,17 @@
 package app.chameleon.authorization.server.config;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.beans.factory.BeanFactoryUtils;
+import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
+import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.Customizer;
@@ -20,8 +23,10 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
+import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -37,8 +42,8 @@ import org.springframework.security.oauth2.server.resource.introspection.SpringO
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
+import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -64,7 +69,13 @@ public class AuthorizationServerConfig {
                 authorizationServer
                     .registeredClientRepository(registeredClientRepository)
                     .authorizationServerSettings(authorizationServerSettings)
-                    .oidc(Customizer.withDefaults())
+                    .oidc(
+                		Customizer.withDefaults()
+//                		oidc -> oidc
+//                			.userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
+//            					.authenticationProvider(new ChameleonOidcUserIinfoAuthenticationProvider(getAuthorizationService(http)))
+//        					)
+            		)
             )
             .headers(headers -> headers
                 .frameOptions((frameOptions) -> frameOptions.disable())
@@ -78,6 +89,7 @@ public class AuthorizationServerConfig {
                 resourceServer
                     .jwt(Customizer.withDefaults())
             )
+//            .authenticationProvider(new ChameleonOidcUserIinfoAuthenticationProvider(getAuthorizationService(http)))
             .authenticationProvider(new OpaqueTokenAuthenticationProvider(
         		new SpringOpaqueTokenIntrospector("http://localhost:9000/oauth2/introspect", "dsca-bff1", "secret1"))
     		)
@@ -240,6 +252,30 @@ public class AuthorizationServerConfig {
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", config);
 		return source;
+	}
+    
+    static OAuth2AuthorizationService getAuthorizationService(HttpSecurity httpSecurity) {
+		OAuth2AuthorizationService authorizationService = httpSecurity
+			.getSharedObject(OAuth2AuthorizationService.class);
+		if (authorizationService == null) {
+			authorizationService = getOptionalBean(httpSecurity, OAuth2AuthorizationService.class);
+			if (authorizationService == null) {
+				authorizationService = new InMemoryOAuth2AuthorizationService();
+			}
+			httpSecurity.setSharedObject(OAuth2AuthorizationService.class, authorizationService);
+		}
+		return authorizationService;
+	}
+    
+    static <T> T getOptionalBean(HttpSecurity httpSecurity, Class<T> type) {
+		Map<String, T> beansMap = BeanFactoryUtils
+			.beansOfTypeIncludingAncestors(httpSecurity.getSharedObject(ApplicationContext.class), type);
+		if (beansMap.size() > 1) {
+			throw new NoUniqueBeanDefinitionException(type, beansMap.size(),
+					"Expected single matching bean of type '" + type.getName() + "' but found " + beansMap.size() + ": "
+							+ StringUtils.collectionToCommaDelimitedString(beansMap.keySet()));
+		}
+		return (!beansMap.isEmpty() ? beansMap.values().iterator().next() : null);
 	}
     
 //    @Bean
