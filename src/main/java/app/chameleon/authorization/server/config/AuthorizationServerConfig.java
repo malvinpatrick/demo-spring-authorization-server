@@ -1,26 +1,27 @@
 package app.chameleon.authorization.server.config;
 
+import java.util.Arrays;
+import java.util.UUID;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
-import org.springframework.security.oauth2.core.oidc.endpoint.OidcParameterNames;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationConsentService;
 import org.springframework.security.oauth2.server.authorization.JdbcOAuth2AuthorizationService;
-import org.springframework.security.oauth2.server.authorization.OAuth2TokenType;
 import org.springframework.security.oauth2.server.authorization.client.JdbcRegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -31,16 +32,16 @@ import org.springframework.security.oauth2.server.authorization.settings.OAuth2T
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenClaimsContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
+import org.springframework.security.oauth2.server.resource.authentication.OpaqueTokenAuthenticationProvider;
+import org.springframework.security.oauth2.server.resource.introspection.SpringOpaqueTokenIntrospector;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.MediaTypeRequestMatcher;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -52,7 +53,6 @@ public class AuthorizationServerConfig {
             HttpSecurity http,
             RegisteredClientRepository registeredClientRepository,
             AuthorizationServerSettings authorizationServerSettings
-//            ,AuthenticationManagerResolver<HttpServletRequest> tokenAuthenticationManagerResolver
     ) throws Exception {
 
         OAuth2AuthorizationServerConfigurer authorizationServerConfigurer = OAuth2AuthorizationServerConfigurer.authorizationServer();
@@ -64,21 +64,23 @@ public class AuthorizationServerConfig {
                 authorizationServer
                     .registeredClientRepository(registeredClientRepository)
                     .authorizationServerSettings(authorizationServerSettings)
-                    .oidc(Customizer.withDefaults())	// Enable OpenID Connect 1.0
+                    .oidc(Customizer.withDefaults())
             )
-            .headers(
-                    headers -> headers
-                            .frameOptions((frameOptions) -> frameOptions.disable())
+            .headers(headers -> headers
+                .frameOptions((frameOptions) -> frameOptions.disable())
             )
-            .authorizeHttpRequests(authorize ->
-                authorize.anyRequest().authenticated()
+            .cors(Customizer.withDefaults())
+            .authorizeHttpRequests(authorize -> authorize
+//            		.requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.OPTIONS, "/**")).permitAll()
+            		.anyRequest().authenticated()
             )
             .oauth2ResourceServer((resourceServer) ->
                 resourceServer
-//                    .authenticationManagerResolver(tokenAuthenticationManagerResolver)
                     .jwt(Customizer.withDefaults())
-//                    .opaqueToken(Customizer.withDefaults())
             )
+            .authenticationProvider(new OpaqueTokenAuthenticationProvider(
+        		new SpringOpaqueTokenIntrospector("http://localhost:9000/oauth2/introspect", "dsca-bff1", "secret1"))
+    		)
             .exceptionHandling((exceptions) ->
                exceptions
                     .defaultAuthenticationEntryPointFor(
@@ -96,16 +98,17 @@ public class AuthorizationServerConfig {
     public SecurityFilterChain defaultSecurityFilterChain(HttpSecurity http) throws Exception {
         // @formatter:off
         http
-            .authorizeHttpRequests((authorize) ->
-               authorize.anyRequest().authenticated()
+            .authorizeHttpRequests((authorize) -> authorize
+//        		.requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.OPTIONS, "/**")).permitAll()
+//        		.requestMatchers("/assets/**", "/login").permitAll()
+        		.anyRequest().authenticated()
             )
-
+            .cors(Customizer.withDefaults())
             // Form login handles the redirect to the login page from the
             // authorization server filter chain
             .formLogin(Customizer.withDefaults())
-            .headers(
-                headers -> headers
-                    .frameOptions((frameOptions) -> frameOptions.disable())
+            .headers(headers -> headers
+                .frameOptions((frameOptions) -> frameOptions.disable())
             )
         ;
 
@@ -190,13 +193,15 @@ public class AuthorizationServerConfig {
         return AuthorizationServerSettings.builder().build();
     }
 
-//    @Bean
-//    OAuth2TokenCustomizer<OAuth2TokenClaimsContext> accessTokenCustomizer(){
-//        return context -> {
+    @Bean
+    OAuth2TokenCustomizer<OAuth2TokenClaimsContext> accessTokenCustomizer(){
+        return context -> {
+    		System.out.print("");
 //            if ((AuthorizationGrantType.AUTHORIZATION_CODE.equals(context.getAuthorizationGrantType())
 //                    || AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType()))
 //                    && OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
 //                Authentication principal = context.getPrincipal();
+//                
 //                Set<String> authorities = principal.getAuthorities().stream()
 //                        .map(GrantedAuthority::getAuthority)
 //                        .collect(Collectors.toSet());
@@ -216,7 +221,40 @@ public class AuthorizationServerConfig {
 //                    context.getClaims().claim("authorities", authorities);
 //                }
 //            }
-//        };
+        };
+    }
+    
+    @Bean
+	public CorsConfigurationSource corsConfigurationSource() {
+		CorsConfiguration config = new CorsConfiguration();
+		config.addAllowedHeader("X-XSRF-TOKEN");
+		config.addAllowedHeader(HttpHeaders.CONTENT_TYPE);
+		config.setAllowedMethods(Arrays.asList("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS"));
+		config.setAllowedOrigins(Arrays.asList(
+                "null",
+				"http://angular-client-1.devbz.local:4200",
+    			"http://localhost",
+    			"http://127.0.0.1"
+			));
+		config.setAllowCredentials(true);
+		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+		source.registerCorsConfiguration("/**", config);
+		return source;
+	}
+    
+//    @Bean
+//    UrlBasedCorsConfigurationSource corsConfigurationSource() {
+//    	CorsConfiguration configuration = new CorsConfiguration();
+//    	configuration.setAllowedOrigins(Arrays.asList(
+//    			"http://angular-client-1.devbz.local",
+//    			"http://localhost", 
+//    			"http://127.0.0.1"
+//			));
+//    	configuration.setAllowedMethods(Arrays.asList("GET","POST", "OPTIONS"));
+//    	
+//    	UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+//    	source.registerCorsConfiguration("/**", configuration);
+//    	return source;
 //    }
 
 }
