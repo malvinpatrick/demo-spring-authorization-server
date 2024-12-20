@@ -70,11 +70,11 @@ public class AuthorizationServerConfig {
                     .registeredClientRepository(registeredClientRepository)
                     .authorizationServerSettings(authorizationServerSettings)
                     .oidc(
-                		Customizer.withDefaults()
-//                		oidc -> oidc
-//                			.userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
-//            					.authenticationProvider(new ChameleonOidcUserIinfoAuthenticationProvider(getAuthorizationService(http)))
-//        					)
+//                		Customizer.withDefaults()
+                		oidc -> oidc
+                			.userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
+            					.authenticationProvider(new ChameleonOidcUserIinfoAuthenticationProvider(getAuthorizationService(http)))
+        					)
             		)
             )
             .headers(headers -> headers
@@ -90,9 +90,9 @@ public class AuthorizationServerConfig {
                     .jwt(Customizer.withDefaults())
             )
 //            .authenticationProvider(new ChameleonOidcUserIinfoAuthenticationProvider(getAuthorizationService(http)))
-            .authenticationProvider(new OpaqueTokenAuthenticationProvider(
-        		new SpringOpaqueTokenIntrospector("http://localhost:9000/oauth2/introspect", "dsca-bff1", "secret1"))
-    		)
+//            .authenticationProvider(new OpaqueTokenAuthenticationProvider(
+//        		new SpringOpaqueTokenIntrospector("http://localhost:9000/oauth2/introspect", "dsca-bff1", "secret1"))
+//    		)
             .exceptionHandling((exceptions) ->
                exceptions
                     .defaultAuthenticationEntryPointFor(
