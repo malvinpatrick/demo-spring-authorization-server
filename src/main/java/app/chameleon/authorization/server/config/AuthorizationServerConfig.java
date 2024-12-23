@@ -37,8 +37,6 @@ import org.springframework.security.oauth2.server.authorization.settings.OAuth2T
 import org.springframework.security.oauth2.server.authorization.settings.TokenSettings;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenClaimsContext;
 import org.springframework.security.oauth2.server.authorization.token.OAuth2TokenCustomizer;
-import org.springframework.security.oauth2.server.resource.authentication.OpaqueTokenAuthenticationProvider;
-import org.springframework.security.oauth2.server.resource.introspection.SpringOpaqueTokenIntrospector;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint;
@@ -47,6 +45,9 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import app.chameleon.authorization.server.oidc.ChameleonOidcUserInfoSuccessHandler;
+import app.chameleon.authorization.server.oidc.authentication.ChameleonOidcUserInfoAuthenticationBearerProvider;
 
 @Configuration
 @EnableWebSecurity
@@ -65,40 +66,40 @@ public class AuthorizationServerConfig {
         // @formatter:off
         http
             .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
-            .with(authorizationServerConfigurer, (authorizationServer) ->
-                authorizationServer
-                    .registeredClientRepository(registeredClientRepository)
-                    .authorizationServerSettings(authorizationServerSettings)
-                    .oidc(
-//                		Customizer.withDefaults()
-                		oidc -> oidc
-                			.userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
-            					.authenticationProvider(new ChameleonOidcUserIinfoAuthenticationProvider(getAuthorizationService(http)))
-        					)
-            		)
+            .with(authorizationServerConfigurer, (authorizationServer) -> authorizationServer
+                .registeredClientRepository(registeredClientRepository)
+                .authorizationServerSettings(authorizationServerSettings)
+                .oidc(oidc -> oidc
+        			.userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
+                        .authenticationProviders(providers -> {
+                            // Remove Default Provider
+                            // providers.removeIf(provider -> provider.getClass().isAssignableFrom(OidcUserInfoAuthenticationProvider.class));
+
+                            // Custom Provider to Handle JWT on Userinfo Endpoint
+                            providers.add(new ChameleonOidcUserInfoAuthenticationBearerProvider(getAuthorizationService(http)));
+
+                            // Custom Provider to get list of granted authorities
+                            // providers.add(new ChameleonOidcUserInfoAuthenticationProvider(getAuthorizationService(http)));
+                        })
+    					.userInfoResponseHandler(new ChameleonOidcUserInfoSuccessHandler(registeredClientRepository))
+					)
+        		)
             )
             .headers(headers -> headers
                 .frameOptions((frameOptions) -> frameOptions.disable())
             )
             .cors(Customizer.withDefaults())
             .authorizeHttpRequests(authorize -> authorize
-//            		.requestMatchers(AntPathRequestMatcher.antMatcher(HttpMethod.OPTIONS, "/**")).permitAll()
-            		.anyRequest().authenticated()
+        		.anyRequest().authenticated()
             )
-            .oauth2ResourceServer((resourceServer) ->
-                resourceServer
-                    .jwt(Customizer.withDefaults())
+            .oauth2ResourceServer((resourceServer) -> resourceServer
+                .jwt(Customizer.withDefaults())
             )
-//            .authenticationProvider(new ChameleonOidcUserIinfoAuthenticationProvider(getAuthorizationService(http)))
-//            .authenticationProvider(new OpaqueTokenAuthenticationProvider(
-//        		new SpringOpaqueTokenIntrospector("http://localhost:9000/oauth2/introspect", "dsca-bff1", "secret1"))
-//    		)
-            .exceptionHandling((exceptions) ->
-               exceptions
-                    .defaultAuthenticationEntryPointFor(
-                        new LoginUrlAuthenticationEntryPoint("/login"),
-                        new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
-                    )
+            .exceptionHandling((exceptions) -> exceptions
+                .defaultAuthenticationEntryPointFor(
+                    new LoginUrlAuthenticationEntryPoint("/login"),
+                    new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
+                )
             );
 
         // @formatter:on
@@ -130,7 +131,10 @@ public class AuthorizationServerConfig {
 
     @Bean
     public UserDetailsService userDetailsService() {
-        UserDetails userDetails = User.withDefaultPasswordEncoder().username("user").password("password").roles("USER")
+        UserDetails userDetails = User.withDefaultPasswordEncoder()
+        		.username("user")
+        		.password("password")
+        		.roles("USER")
                 .build();
 
         return new InMemoryUserDetailsManager(userDetails);
@@ -204,37 +208,6 @@ public class AuthorizationServerConfig {
     public AuthorizationServerSettings authorizationServerSettings() {
         return AuthorizationServerSettings.builder().build();
     }
-
-    @Bean
-    OAuth2TokenCustomizer<OAuth2TokenClaimsContext> accessTokenCustomizer(){
-        return context -> {
-    		System.out.print("");
-//            if ((AuthorizationGrantType.AUTHORIZATION_CODE.equals(context.getAuthorizationGrantType())
-//                    || AuthorizationGrantType.REFRESH_TOKEN.equals(context.getAuthorizationGrantType()))
-//                    && OAuth2TokenType.ACCESS_TOKEN.equals(context.getTokenType())) {
-//                Authentication principal = context.getPrincipal();
-//                
-//                Set<String> authorities = principal.getAuthorities().stream()
-//                        .map(GrantedAuthority::getAuthority)
-//                        .collect(Collectors.toSet());
-//                authorities.add("SCOPE_message.read");
-//                context.getClaims().claim("authorities", authorities);
-//            } else if (OidcParameterNames.ID_TOKEN.equals(context.getTokenType().getValue())) {
-//                Authentication principal = context.getPrincipal();
-//                Set<String> authorities = principal.getAuthorities().stream()
-//                        .map(GrantedAuthority::getAuthority)
-//                        .collect(Collectors.toSet());
-//                context.getClaims().claim("authorities", authorities);
-//            } else if (AuthorizationGrantType.CLIENT_CREDENTIALS.equals(context.getAuthorizationGrantType())) {
-//                Authentication principal = context.getPrincipal();
-//                if("dsca-bff2".equals(principal.getName())) {
-//                    List<String> authorities = new ArrayList<>();
-//                    authorities.add("SCOPE_message.read");
-//                    context.getClaims().claim("authorities", authorities);
-//                }
-//            }
-        };
-    }
     
     @Bean
 	public CorsConfigurationSource corsConfigurationSource() {
@@ -277,20 +250,5 @@ public class AuthorizationServerConfig {
 		}
 		return (!beansMap.isEmpty() ? beansMap.values().iterator().next() : null);
 	}
-    
-//    @Bean
-//    UrlBasedCorsConfigurationSource corsConfigurationSource() {
-//    	CorsConfiguration configuration = new CorsConfiguration();
-//    	configuration.setAllowedOrigins(Arrays.asList(
-//    			"http://angular-client-1.devbz.local",
-//    			"http://localhost", 
-//    			"http://127.0.0.1"
-//			));
-//    	configuration.setAllowedMethods(Arrays.asList("GET","POST", "OPTIONS"));
-//    	
-//    	UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-//    	source.registerCorsConfiguration("/**", configuration);
-//    	return source;
-//    }
 
 }
