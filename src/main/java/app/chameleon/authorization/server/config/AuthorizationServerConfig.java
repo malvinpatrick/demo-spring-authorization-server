@@ -108,14 +108,10 @@ public class AuthorizationServerConfig {
             .with(authorizationServerConfigurer, (authorizationServer) -> authorizationServer
                 .registeredClientRepository(registeredClientRepository)
                 .authorizationServerSettings(authorizationServerSettings)	
-//                .oidc(Customizer.withDefaults())
                 .oidc(oidc -> oidc
         			.userInfoEndpoint(userInfoEndpoint -> userInfoEndpoint
                         .authenticationProviders(providers -> {
-                            // Remove Default Provider
-                            // providers.removeIf(provider -> provider.getClass().isAssignableFrom(OidcUserInfoAuthenticationProvider.class));
-
-                            // Custom Provider to Handle JWT on Userinfo Endpoint
+                            // Custom Provider to Handle JWT on UserInfo EndPoint
                             providers.add(new ChameleonOidcUserInfoAuthenticationBearerProvider(getAuthorizationService(http)));
                         })
     					// .userInfoResponseHandler(new ChameleonOidcUserInfoSuccessHandler(registeredClientRepository))
@@ -164,13 +160,14 @@ public class AuthorizationServerConfig {
         // @formatter:on
 	}
 
-	@Bean
-	public UserDetailsService userDetailsService() {
-		UserDetails userDetails = User.withDefaultPasswordEncoder().username("user").password("password").roles("USER")
-				.build();
-
-		return new InMemoryUserDetailsManager(userDetails);
-	}
+	// Digantikan oleh DummyUserDetailService, seolah dynamic user yg bisa query ke db
+//	@Bean
+//	public UserDetailsService userDetailsService() {
+//		UserDetails userDetails = User.withDefaultPasswordEncoder().username("user").password("password").roles("USER")
+//				.build();
+//
+//		return new InMemoryUserDetailsManager(userDetails);
+//	}
 
 	@Bean
 	public JdbcRegisteredClientRepository registeredClientRepository(JdbcTemplate jdbcTemplate) {
@@ -180,12 +177,16 @@ public class AuthorizationServerConfig {
 		if (clientDscaBff == null) {
 			RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString()).clientId("dsca-bff1")
 					.clientSecret("{noop}secret1")
+					.clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
 					.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
 					.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+					
 					.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
 					.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
 					.authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
+					
 					.redirectUri("http://angular-client-1.devbz.local:8081/login/oauth2/code/dsca-bff1")
+					.redirectUri("http://angular-client-3.devbz.local:8081/login/oauth2/code/dsca-bff1")
 					.redirectUri("http://angular-client-1.devbz.local:8081/authorized")
 					.postLogoutRedirectUri("http://angular-client-1.devbz.local:8081/logged-out")
 					.scope(OidcScopes.OPENID).scope(OidcScopes.PROFILE).scope("message.read").scope("message.write")
@@ -242,6 +243,7 @@ public class AuthorizationServerConfig {
 		config.setAllowedOrigins(Arrays.asList("null", "http://angular-client-1.devbz.local:4200", "http://localhost",
 				"http://127.0.0.1"));
 		config.setAllowCredentials(true);
+		
 		UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
 		source.registerCorsConfiguration("/**", config);
 		return source;
