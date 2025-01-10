@@ -177,11 +177,11 @@ public class AuthorizationServerConfig {
 		if (clientDscaBff == null) {
 			RegisteredClient client = RegisteredClient.withId(UUID.randomUUID().toString()).clientId("dsca-bff1")
 					.clientSecret("{noop}secret1")
-					.clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
+//					.clientAuthenticationMethod(ClientAuthenticationMethod.NONE)
 					.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_BASIC)
-					.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
+//					.clientAuthenticationMethod(ClientAuthenticationMethod.CLIENT_SECRET_POST)
 					
-					.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
+//					.authorizationGrantType(AuthorizationGrantType.CLIENT_CREDENTIALS)
 					.authorizationGrantType(AuthorizationGrantType.AUTHORIZATION_CODE)
 					.authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
 					
