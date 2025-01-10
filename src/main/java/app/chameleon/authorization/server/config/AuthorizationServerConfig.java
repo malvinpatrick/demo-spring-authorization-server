@@ -186,13 +186,16 @@ public class AuthorizationServerConfig {
 					.authorizationGrantType(AuthorizationGrantType.REFRESH_TOKEN)
 					
 					.redirectUri("http://angular-client-1.devbz.local:8081/login/oauth2/code/dsca-bff1")
+					.redirectUri("http://angular-client-1.devbz.local:8081/login/oauth2/callback/dsca-bff1")
 					.redirectUri("http://angular-client-3.devbz.local:8081/login/oauth2/code/dsca-bff1")
+					.redirectUri("http://angular-client-3.devbz.local:8081/login/oauth2/callback/dsca-bff1")
 					.redirectUri("http://angular-client-1.devbz.local:8081/authorized")
 					.postLogoutRedirectUri("http://angular-client-1.devbz.local:8081/logged-out")
 					.scope(OidcScopes.OPENID).scope(OidcScopes.PROFILE).scope("message.read").scope("message.write")
 					.scope("user.read")
 					.tokenSettings(TokenSettings.builder().accessTokenFormat(OAuth2TokenFormat.REFERENCE).build())
-					.clientSettings(ClientSettings.builder().requireAuthorizationConsent(false).build()).build();
+					.clientSettings(ClientSettings.builder().requireProofKey(true).requireAuthorizationConsent(false).build())
+					.build();
 
 			repository.save(client);
 		}
