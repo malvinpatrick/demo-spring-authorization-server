@@ -6,19 +6,22 @@
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
 		<version>3.4.0</version>
-		<relativePath/> <!-- lookup parent from repository -->
+		<relativePath/>
 	</parent>
-	<groupId>app.chameleon</groupId>
-	<artifactId>authorization.server</artifactId>
+	<groupId>app.demo</groupId>
+	<artifactId>demo-authorization.server</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>chameleon-authorization-server</name>
+	<name>demo-authorization-server</name>
 	<description>Demo project for Spring Boot</description>
 	<url/>
 	<licenses>
 		<license/>
 	</licenses>
 	<developers>
-		<developer/>
+		<developer>
+			<name>Malvin Patrick Kurniawan</name>
+			<email>malvinpatrickk@gmail.com</email>
+		</developer>
 	</developers>
 	<scm>
 		<connection/>
@@ -47,8 +50,8 @@
 			<artifactId>spring-boot-starter-jdbc</artifactId>
 		</dependency>
 		<dependency>
-			<groupId>org.postgresql</groupId>
-			<artifactId>postgresql</artifactId>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
 			<scope>runtime</scope>
 		</dependency>
 		<dependency>

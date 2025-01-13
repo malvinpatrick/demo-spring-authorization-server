@@ -2,12 +2,6 @@ server:
   port: 9443
 
 spring:
-  datasource:
-    url: jdbc:postgresql://localhost:5432/spring-security
-    username: postgres
-    password: postgres
-    driver-class-name: org.postgresql.Driver
-
   security:
     user:
       name: user

@@ -27,14 +27,14 @@ import org.springframework.util.Assert;
  * <p>
  * Based on OAuth2TokenIntrospectionAuthenticationProvider
  */
-public class ChameleonOidcUserInfoAuthenticationBearerProvider implements AuthenticationProvider {
+public class CustomOidcUserInfoAuthenticationBearerProvider implements AuthenticationProvider {
 
     private final Log logger = LogFactory.getLog(getClass());
 
     private final OAuth2AuthorizationService authorizationService;
 
 
-    public ChameleonOidcUserInfoAuthenticationBearerProvider(OAuth2AuthorizationService authorizationService) {
+    public CustomOidcUserInfoAuthenticationBearerProvider(OAuth2AuthorizationService authorizationService) {
         Assert.notNull(authorizationService, "authorizationService cannot be null");
         this.authorizationService = authorizationService;
     }
