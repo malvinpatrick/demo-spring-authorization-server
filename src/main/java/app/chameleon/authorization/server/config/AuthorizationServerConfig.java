@@ -99,6 +99,9 @@ public class AuthorizationServerConfig {
         // @formatter:off
         http
             .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
+            .oauth2ResourceServer(oauth2 -> oauth2
+                    .opaqueToken(Customizer.withDefaults())
+            )
             .with(authorizationServerConfigurer, (authorizationServer) -> authorizationServer
                 .registeredClientRepository(registeredClientRepository)
                 .authorizationServerSettings(authorizationServerSettings)	
@@ -114,9 +117,9 @@ public class AuthorizationServerConfig {
             .authorizeHttpRequests(authorize -> authorize
         		.anyRequest().authenticated()
             )
-            .oauth2ResourceServer(oauth -> oauth
-                .authenticationManagerResolver(authenticationManagerResolver)
-            )
+//            .oauth2ResourceServer(oauth -> oauth
+//                .authenticationManagerResolver(authenticationManagerResolver)
+//            )
             .exceptionHandling((exceptions) -> exceptions
                 .defaultAuthenticationEntryPointFor(
                     new LoginUrlAuthenticationEntryPoint("/login"),
@@ -226,9 +229,12 @@ public class AuthorizationServerConfig {
     }
 
     private static boolean isJwt(HttpServletRequest request) {
-        String accessToken = bearerTokenResolver.resolve(request); if (!StringUtils.hasText(accessToken)) {
+        String accessToken = bearerTokenResolver.resolve(request);
+        if (!StringUtils.hasText(accessToken)) {
             return false;
-        } try {
+        }
+
+        try {
             Base64URL[] parts = JOSEObject.split(accessToken); if (parts.length == 3) {
                 // 3 parts expected for Signed JWT
                 return true;
@@ -257,7 +263,9 @@ public class AuthorizationServerConfig {
         return (jwt) -> {
             List<GrantedAuthority> authorities = new ArrayList<>();
             authorities.addAll(defaultAuthoritiesConverter.convert(jwt));
-            authorities.addAll(customAuthoritiesConverter.convert(jwt)); return authorities;
+            authorities.addAll(customAuthoritiesConverter.convert(jwt));
+
+            return authorities;
         };
     }
 
