@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import app.chameleon.authorization.server.oidc.authentication.CustomOpaqueTokenIntrospector;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.beans.factory.NoUniqueBeanDefinitionException;
 import org.springframework.context.ApplicationContext;
@@ -88,6 +89,11 @@ public class AuthorizationServerConfig {
     }
 
     @Bean
+    public CustomOpaqueTokenIntrospector customOpaqueTokenIntrospector(OAuth2AuthorizationService authorizationService) {
+        return new CustomOpaqueTokenIntrospector(authorizationService);
+    }
+
+    @Bean
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public SecurityFilterChain authorizationServerSecurityFilterChain(HttpSecurity http,
             RegisteredClientRepository registeredClientRepository,
@@ -100,7 +106,9 @@ public class AuthorizationServerConfig {
         http
             .securityMatcher(authorizationServerConfigurer.getEndpointsMatcher())
             .oauth2ResourceServer(oauth2 -> oauth2
-                    .opaqueToken(Customizer.withDefaults())
+                .opaqueToken(opaqueToken -> opaqueToken
+                    .introspector(customOpaqueTokenIntrospector(getAuthorizationService(http)))
+                )
             )
             .with(authorizationServerConfigurer, (authorizationServer) -> authorizationServer
                 .registeredClientRepository(registeredClientRepository)
